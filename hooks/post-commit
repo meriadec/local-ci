@@ -1,0 +1,44 @@
+#!/bin/env bash
+
+COMMIT_SHA=$(git rev-list HEAD | head -n 1)
+
+CURRENT_DIR=$(pwd)
+CURRENT_DIR_NAME=${PWD##*/}
+LOG_FILE="$CURRENT_DIR/local-ci.log"
+
+TMP_DIR="/tmp/$CURRENT_DIR_NAME"
+WORK_DIR="$TMP_DIR/$COMMIT_SHA"
+
+if [[ ! -f ".local-ci" ]]; then
+  printf "\e[0m 📢 [warn] local-ci hook installed but no \`.local-ci\` file found\n"
+  exit 1
+fi
+
+printf "\e[0m\n 🤞 Launched local CI tests\n\n"
+
+(
+  mkdir -p "$TMP_DIR"
+
+  echo "-- fetching repository"
+  if [[ -d "$WORK_DIR" ]]; then
+    cd "$WORK_DIR" || exit 1
+    git fetch "$OLDPWD" &>/dev/null
+  else
+    git clone "$CURRENT_DIR" "$WORK_DIR" &>/dev/null
+    cd "$WORK_DIR" || exit 1
+  fi
+
+  echo "-- checkout to $COMMIT_SHA"
+  git checkout "$COMMIT_SHA" &>/dev/null
+
+  echo "-- launching tests..."
+  (
+    SRC_DIR="$OLDPWD" bash "$OLDPWD/.local-ci" \
+      && notify-send "Success for $COMMIT_SHA" \
+      && rm -rf "$WORK_DIR"
+  ) \
+    || notify-send -u critical "Failed tests for sha $COMMIT_SHA. Logs files in local-ci.log"
+  echo "Finished."
+
+
+) &> "$LOG_FILE" &
