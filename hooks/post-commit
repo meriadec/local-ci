@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 COMMIT_SHA=$(git rev-list HEAD | head -n 1)
 
@@ -15,6 +15,16 @@ if [[ ! -f ".local-ci" ]]; then
 fi
 
 printf "\e[0m\n 🤞 Launched local CI tests\n\n"
+
+function sendNotif () {
+  MSG=$1
+  TYPE=${2:-normal}
+  if [[ $(uname) == "Darwin" ]]; then
+    osascript -e "display notification \"$MSG\" with title \"Local CI\""
+  else
+    notify-send -u "$TYPE" "$MSG"
+  fi
+}
 
 (
   mkdir -p "$TMP_DIR"
@@ -34,10 +44,10 @@ printf "\e[0m\n 🤞 Launched local CI tests\n\n"
   echo "-- launching tests..."
   (
     SRC_DIR="$OLDPWD" bash "$OLDPWD/.local-ci" \
-      && notify-send "Success for $COMMIT_SHA" \
+      && sendNotif "Success for $COMMIT_SHA" \
       && rm -rf "$WORK_DIR"
   ) \
-    || notify-send -u critical "Failed tests for sha $COMMIT_SHA. Logs files in local-ci.log"
+    || sendNotif "Failed tests for sha $COMMIT_SHA. Logs files in local-ci.log" critical
   echo "Finished."
 
 
